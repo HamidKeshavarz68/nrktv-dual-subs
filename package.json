@@ -21,11 +21,11 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "typescript": "^5.8.3",
-    "wxt": "^0.20.7"
+    "wxt": "^0.20.11"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.7",
-    "@wxt-dev/storage": "^1.1.1",
+    "@wxt-dev/storage": "^1.2.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "rxjs": "^7.8.2"
