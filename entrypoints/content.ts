@@ -76,7 +76,36 @@ export default defineContentScript({
       shiftOriginalSubtitle();
     }
 
-    async function translateSubtitle(subtitle: string[]): Promise<string> {
+    async function getBuiltinTranslatorApi(options: TranslatorOptions) {
+      if (!('Translator' in self) || !self.Translator) {
+        return null;
+      }
+      const translatorCapabilities = await self.Translator.availability(options);
+      switch (translatorCapabilities) {
+        case 'available':
+          return await self.Translator.create(options);
+        case 'downloadable':
+          // Trigger model download for next time (optimistic, don't await or care about result)
+          self.Translator.create(options).catch(() => {});
+          return null;
+        default:
+          return null;
+      }
+    }
+
+    async function translateSubtitleUsingBuiltinApi(subtitle: string[]): Promise<string> {
+      const translatorApi = await getBuiltinTranslatorApi({
+        sourceLanguage: 'no',
+        targetLanguage: language || 'en'
+      });
+      if (translatorApi) {
+        const translatedLines = await Promise.all(subtitle.map((line) => translatorApi.translate(line)));
+        return translatedLines.join('\n');
+      }
+      throw new Error('Built-in Translator API not available');
+    }
+
+    async function translateSubtitleUsingNetwork(subtitle: string[]): Promise<string> {
       const translation = await browser.runtime.sendMessage({
         action: ExtensionMessageAction.Translate,
         payload: {
@@ -87,6 +116,16 @@ export default defineContentScript({
       } as ExtensionMessage);
       if (translation.error) throw translation.error;
       return translation.response;
+    }
+
+    async function translateSubtitle(subtitle: string[]): Promise<string> {
+      return await Promise.any([
+        // Try both translation methods and use whichever is fastest
+        // This also provides a stable fallback in case one method fails
+        // (e.g. built-in API not available, network request fails, etc.)
+        translateSubtitleUsingBuiltinApi(subtitle),
+        translateSubtitleUsingNetwork(subtitle)
+      ]);
     }
 
     document.addEventListener('keydown', (e) => {
